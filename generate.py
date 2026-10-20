@@ -156,9 +156,11 @@ def main() -> int:
                     help="with --rgba, do not wrap the prompt in the recommended "
                          "transparency template")
     ap.add_argument("--device", help="cuda | mps | cpu (default: best available)")
-    ap.add_argument("--offload", choices=("auto", "on", "off"), default="auto",
-                    help="CPU-offload components to fit a smaller GPU. auto (default) "
-                         "measures free VRAM and decides; on forces it; off never does")
+    ap.add_argument("--offload", nargs="?", const="on", choices=("auto", "on", "off"),
+                    default="auto",
+                    help="CPU-offload components to fit a smaller GPU. Bare --offload "
+                         "forces it on; --offload off never offloads; the default, auto, "
+                         "measures free VRAM and decides")
     a = ap.parse_args()
 
     prompts: list[str] = []
