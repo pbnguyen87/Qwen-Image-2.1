@@ -1,0 +1,31 @@
+# Dependencies for generate.py (text-to-image and image editing).
+#
+#   pip install -r requirements.txt
+#
+# torch must match your CUDA. The plain wheel on PyPI is built for one CUDA
+# version only, so install it first from the index that matches your driver,
+# then run this file:
+#
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
+#   pip install -r requirements.txt
+#
+# nvidia-smi shows the CUDA version the driver supports; cu128 suits CUDA 12.8,
+# cu126 suits 12.6. On Apple Silicon or CPU, plain `pip install torch` is right.
+
+# Lower bounds, per the model card. torch>=2.4 is the documented floor; the
+# QwenImage21Pipeline needs transformers 5.17 or newer for the Qwen3-VL text
+# encoder the checkpoint ships with.
+torch>=2.4.0
+transformers>=5.17
+accelerate>=1.0
+pillow>=10.0
+safetensors>=0.4
+
+# QwenImage21Pipeline is only in the diffusers main branch, not any tagged
+# release. Replace with a version pin once it ships in one.
+diffusers @ git+https://github.com/huggingface/diffusers
+
+# Note: prompt_rewrite/requirements.txt pins transformers==5.4.0 for the
+# qwen3_5 prompt-enhancer architecture, which contradicts the >=5.17 above.
+# The prompt enhancer therefore needs its own environment; do not merge the two
+# files into one install.
