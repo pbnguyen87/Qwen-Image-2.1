@@ -1,0 +1,31 @@
+# Does Qwen-Image-2.1 render Vietnamese text, and where does it break?
+#
+#   python generate.py --prompt-file tests/vietnamese_text_render.txt \
+#       --turbo --offload --size 1024 --out-dir outputs/vi_text
+#
+# Ordered easiest to hardest. Each prompt asks for ONE short string on a plain
+# sign, so you can read the result and see exactly which characters survived.
+# The target string is quoted in the prompt; compare it with the pixels.
+#
+# What each case probes:
+#   1-2   control: ASCII only. If these fail, the problem is not Vietnamese.
+#   3-5   single diacritics: acute, grave, hook above.
+#   6     the letter d with stroke, which exists in no other major language.
+#   7-9   stacked diacritics: a vowel carrying both a modifier and a tone.
+#         This is where Latin-trained text renderers usually fail.
+#   10    the full set in one line.
+#   11    code-switching, Vietnamese and English in one sign.
+#   12    a longer phrase, to see whether length degrades the glyphs.
+
+A photograph of a simple white wooden shop sign with clean black letters reading "CAFE", mounted on a brick wall, daylight, sharp focus
+A photograph of a plain white paper poster with large black letters reading "HANOI 2026", flat on a wooden table, even lighting
+A photograph of a white cafe sign with black letters reading "Cà Phê", hanging above a doorway, sharp focus
+A photograph of a white enamel sign with black letters reading "Bánh Mì", on a pale wall, daylight
+A photograph of a white menu board with black letters reading "Phở Bò", standing on a pavement, sharp focus
+A photograph of a white sign with black letters reading "Đà Nẵng", mounted on a concrete wall, daylight
+A photograph of a white paper poster with large black letters reading "Tiếng Việt", flat on a table, even lighting
+A photograph of a white sign with black letters reading "Nguyễn Huệ", above a shop front, sharp focus
+A photograph of a white notice board with black letters reading "Kiểm Duyệt", on a grey wall, daylight
+A photograph of a white poster with black letters reading "Ưu tiên kiểm tra sức khỏe", flat on a desk, even lighting, sharp focus
+A photograph of a white cafe sign with black letters reading "Cà Phê Specialty Coffee", hanging above a doorway, daylight
+A photograph of a white paper poster with black text reading "Chào mừng quý khách đến Hà Nội", flat on a wooden surface, even lighting, sharp focus
