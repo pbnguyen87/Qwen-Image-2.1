@@ -52,16 +52,35 @@ PRESETS = {
 }
 
 
+# The VAE downsamples by 8 and the transformer patches by 2, so both sides must be
+# multiples of 16. Anything else either errors inside the pipeline or is silently
+# rounded, which quietly changes the aspect ratio you asked for.
+SIZE_MULTIPLE = 16
+
+
 def parse_size(value: str) -> tuple[int, int]:
+    """Accept a preset name, "WxH", or a single number meaning a square."""
     if value in PRESETS:
         return PRESETS[value]
-    if "x" in value.lower():
-        w, _, h = value.lower().partition("x")
-        try:
-            return int(w), int(h)
-        except ValueError:
-            pass
-    raise SystemExit(f"--size wants WxH or one of {', '.join(PRESETS)}; got {value!r}")
+    text = value.lower().replace("*", "x").replace("×", "x")
+    if "x" in text:
+        w, _, h = text.partition("x")
+        parts = (w.strip(), h.strip())
+    else:
+        parts = (text.strip(), text.strip())     # "664" -> 664 x 664
+    try:
+        w, h = (int(p) for p in parts)
+    except ValueError:
+        raise SystemExit(
+            f"--size wants a number, WxH, or one of {', '.join(PRESETS)}; got {value!r}"
+        ) from None
+    if w <= 0 or h <= 0:
+        raise SystemExit(f"--size needs positive dimensions; got {w}x{h}")
+    snapped = tuple(max(SIZE_MULTIPLE, round(v / SIZE_MULTIPLE) * SIZE_MULTIPLE) for v in (w, h))
+    if snapped != (w, h):
+        print(f"note: {w}x{h} is not a multiple of {SIZE_MULTIPLE}, which this model "
+              f"requires; using {snapped[0]}x{snapped[1]}", file=sys.stderr)
+    return snapped
 
 
 # bf16 weights, measured from the repo's own file sizes. Components load one at a
@@ -145,7 +164,9 @@ def main() -> int:
                     help=f"use {REPO_TURBO}, 8 steps instead of 40")
     ap.add_argument("--model", help="override the checkpoint repo or local path")
     ap.add_argument("--size", default="square",
-                    help=f"WxH, or a preset: {', '.join(PRESETS)} (ignored when editing)")
+                    help=f"a single number for a square, WxH, or a preset: "
+                         f"{', '.join(PRESETS)}. Both sides are snapped to a multiple "
+                         f"of {SIZE_MULTIPLE}, which the model requires. Ignored when editing")
     ap.add_argument("--steps", type=int, help="denoising steps (default 8 turbo / 40 base)")
     ap.add_argument("--cfg", type=float, help="true_cfg_scale, higher follows the prompt harder")
     ap.add_argument("--negative", default=" ", help="negative prompt")
