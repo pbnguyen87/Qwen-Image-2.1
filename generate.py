@@ -64,8 +64,18 @@ def parse_size(value: str) -> tuple[int, int]:
     raise SystemExit(f"--size wants WxH or one of {', '.join(PRESETS)}; got {value!r}")
 
 
-def load_pipeline(repo: str, device: str | None, offload: bool):
-    """Build the pipeline. Returns (pipe, device, dtype_name)."""
+# bf16 weights, measured from the repo's own file sizes. Components load one at a
+# time under CPU offload, so the peak is the largest of them plus the VAE.
+WEIGHTS_GB = {"text_encoder": 17.6, "transformer": 14.3, "vae": 1.4}
+VRAM_ALL_GB = sum(WEIGHTS_GB.values()) + 0.6          # + CUDA context
+VRAM_OFFLOAD_GB = max(WEIGHTS_GB["text_encoder"], WEIGHTS_GB["transformer"]) + 1.4
+
+
+def load_pipeline(repo: str, device: str | None, offload: str):
+    """Build the pipeline. ``offload`` is "auto", "on" or "off".
+
+    Returns (pipe, device, dtype_name).
+    """
     import torch
     try:
         from diffusers import QwenImage21Pipeline
@@ -82,10 +92,24 @@ def load_pipeline(repo: str, device: str | None, offload: bool):
     # bf16 on CUDA, fp32 on CPU where bf16 is slow and unsupported in places
     dtype = torch.bfloat16 if device != "cpu" else torch.float32
 
+    use_offload = offload == "on"
+    if offload == "auto" and device == "cuda":
+        free_b, total_b = torch.cuda.mem_get_info()
+        free = free_b / 1e9
+        need = VRAM_ALL_GB * 1.12          # weights plus rough activation headroom
+        use_offload = free < need
+        print(f"   {free:.1f} GB free of {total_b/1e9:.0f} GB; "
+              f"{'offloading' if use_offload else 'resident'} load needs about "
+              f"{VRAM_OFFLOAD_GB if use_offload else VRAM_ALL_GB:.0f} GB")
+        if use_offload and free < VRAM_OFFLOAD_GB * 1.1:
+            print(f"   warning: even offloaded this wants ~{VRAM_OFFLOAD_GB:.0f} GB and "
+                  f"only {free:.1f} GB is free; expect an out-of-memory error",
+                  file=sys.stderr)
+
     print(f"loading {repo} on {device} ({str(dtype).split('.')[-1]}) ...", flush=True)
     t0 = time.time()
     pipe = QwenImage21Pipeline.from_pretrained(repo, torch_dtype=dtype)
-    if offload:
+    if use_offload:
         # Keeps only the active component on the GPU. Slower per image, but the
         # 7.1B transformer plus its Qwen3-VL text encoder then fit a smaller card.
         pipe.enable_model_cpu_offload()
@@ -132,8 +156,9 @@ def main() -> int:
                     help="with --rgba, do not wrap the prompt in the recommended "
                          "transparency template")
     ap.add_argument("--device", help="cuda | mps | cpu (default: best available)")
-    ap.add_argument("--offload", action="store_true",
-                    help="CPU-offload components to fit a smaller GPU")
+    ap.add_argument("--offload", choices=("auto", "on", "off"), default="auto",
+                    help="CPU-offload components to fit a smaller GPU. auto (default) "
+                         "measures free VRAM and decides; on forces it; off never does")
     a = ap.parse_args()
 
     prompts: list[str] = []
