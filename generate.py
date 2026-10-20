@@ -37,19 +37,25 @@ from pathlib import Path
 
 REPO_T2I = "Qwen/Qwen-Image-2.1"
 REPO_TURBO = "Qwen/Qwen-Image-2.1-Turbo"
-# Sizes the model card uses. Qwen-Image works in several aspect ratios at roughly
-# constant pixel count; these are the documented ones.
-# The card: "For best results, use the recommended prompt format" for transparency.
-RGBA_PREFIX = "This is an RGBA image with transparency. "
-RGBA_SUFFIX = " The image has alpha channel and the background is transparent."
-
+# Exactly the table in the model card's "Supported Aspect Ratios": the model
+# natively targets 2K, and these are the sizes it recommends. Earlier revisions
+# of this file carried the 20B Qwen-Image resolutions, which are not these.
 PRESETS = {
-    "square": (1328, 1328),
-    "landscape": (1664, 928),      # 16:9
-    "portrait": (928, 1664),       # 9:16
-    "photo": (1472, 1140),         # 4:3
-    "poster": (1696, 2528),        # the README's tall poster example
+    "1:1": (2048, 2048),
+    "4:3": (2400, 1792),
+    "3:4": (1792, 2400),
+    "3:2": (2528, 1696),
+    "2:3": (1696, 2528),
+    "16:9": (2752, 1536),
+    "9:16": (1536, 2752),
 }
+PRESETS.update({                      # friendlier aliases for the same sizes
+    "square": PRESETS["1:1"],
+    "landscape": PRESETS["16:9"],
+    "portrait": PRESETS["9:16"],
+    "photo": PRESETS["4:3"],
+    "poster": PRESETS["2:3"],
+})
 
 
 # The VAE downsamples by 8 and the transformer patches by 2, so both sides must be
